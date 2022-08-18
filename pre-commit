@@ -4,46 +4,37 @@
 # Checks the files to be committed for the presence of print_r(), var_dump() and die()
 # The array below can be extended for further checks
 
-checks[1]="var_dump("
-checks[2]="print_r("
-checks[3]="die"
+checks[1]="!!nocommit!!"
+# checks[2]="some_special_string_to_be_catched"
 
 element_count=${#checks[@]}
 let "element_count = $element_count + 1"
 
 ROOT_DIR="$(pwd)/"
-LIST=$(git status | grep -e '\#.*\(modified\|added\)')
+LIST=$(git status -s --no-renames | grep -e '^\( *M \|?? \|A \)')
 ERRORS_BUFFER=""
 for file in $LIST
 do
-    if [ "$file" == '#' ]; then
+    if [ ${#file} -le 3 ]; then
         continue
     fi
-    if [ $(echo "$file" | grep 'modified') ]; then
-        FILE_ACTION="modified"
-    elif [ $(echo "$file" | grep 'added') ]; then
-        FILE_ACTION="added"
-    else 
-        EXTENSION=$(echo "$file" | grep ".php$")
-        if [ "$EXTENSION" != "" ]; then
+	
+	index=1
+	while [ "$index" -lt "$element_count" ]
+	do
+		ERRORS=$(grep "${checks[$index]}" $ROOT_DIR$file >&1)
+		if [ "$ERRORS" != "" ]; then
+			if [ "$ERRORS_BUFFER" != "" ]; then
+				ERRORS_BUFFER="$ERRORS_BUFFER\n$ERRORS"
+			else
+				ERRORS_BUFFER="$ERRORS"
+			fi
 
-            index=1
-            while [ "$index" -lt "$element_count" ]
-            do
-                echo "Checking $FILE_ACTION file: $file [${checks[$index]}]" 
-                ERRORS=$(grep "\b${checks[$index]}\b" $ROOT_DIR$file >&1)
-                if [ "$ERRORS" != "" ]; then
-                    if [ "$ERRORS_BUFFER" != "" ]; then
-                        ERRORS_BUFFER="$ERRORS_BUFFER\n$ERRORS"
-                    else
-                        ERRORS_BUFFER="$ERRORS"
-                    fi
-                    echo "${checks[$index]} found in file: $file "
-                fi
-                let "index = $index + 1"
-            done
-        fi
-    fi
+			echo "${checks[$index]} found in file: $file "
+		fi
+
+		let "index = $index + 1"
+	done
 done
 if [ "$ERRORS_BUFFER" != "" ]; then
     echo 
